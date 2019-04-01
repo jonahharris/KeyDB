@@ -137,6 +137,8 @@ extern "C" {
 #define CONFIG_DEFAULT_TCP_KEEPALIVE 300
 #define CONFIG_DEFAULT_PROTECTED_MODE 1
 #define CONFIG_DEFAULT_GOPHER_ENABLED 0
+#define CONFIG_DEFAULT_HTTP_ENABLED 0
+#define CONFIG_DEFAULT_HTTP_PORT 8080
 #define CONFIG_DEFAULT_LOGFILE ""
 #define CONFIG_DEFAULT_SYSLOG_ENABLED 0
 #define CONFIG_DEFAULT_STOP_WRITES_ON_BGSAVE_ERROR 1
@@ -1131,6 +1133,9 @@ struct redisServer {
     int protected_mode;         /* Don't accept external connections. */
     int gopher_enabled;         /* If true the server will reply to gopher
                                    queries. Will still serve RESP2 queries. */
+    int http_enabled;           /* If true the server will reply to HTTP
+                                   queries. Will still serve RESP2 queries. */
+    int http_port;              /* TCP listening port for HTTP */
     /* RDB / AOF loading information */
     int loading;                /* We are loading data from disk if true */
     off_t loading_total_bytes;
@@ -1597,6 +1602,7 @@ void setDeferredPushLen(client *c, void *node, long length);
 void processInputBuffer(client *c);
 void processInputBufferAndReplicate(client *c);
 void processGopherRequest(client *c);
+void processHTTPRequest(client *c);
 void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 void acceptTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 void acceptUnixHandler(aeEventLoop *el, int fd, void *privdata, int mask);

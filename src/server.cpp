@@ -2280,6 +2280,8 @@ void initServerConfig(void) {
     server.sofd = -1;
     server.protected_mode = CONFIG_DEFAULT_PROTECTED_MODE;
     server.gopher_enabled = CONFIG_DEFAULT_GOPHER_ENABLED;
+    server.http_port = CONFIG_DEFAULT_HTTP_PORT;
+    server.http_enabled = CONFIG_DEFAULT_HTTP_ENABLED;
     server.dbnum = CONFIG_DEFAULT_DBNUM;
     server.verbosity = CONFIG_DEFAULT_VERBOSITY;
     server.maxidletime = CONFIG_DEFAULT_CLIENT_TIMEOUT;
@@ -2763,6 +2765,9 @@ static void initNetworkingThread(int iel, int fReusePort)
     {
         if (server.port != 0 &&
             listenToPort(server.port,server.rgthreadvar[iel].ipfd,&server.rgthreadvar[iel].ipfd_count, fReusePort) == C_ERR)
+            exit(1);
+        if (server.http_enabled && server.http_port != 0 &&
+            listenToPort(server.http_port,server.rgthreadvar[iel].ipfd,&server.rgthreadvar[iel].ipfd_count, fReusePort) == C_ERR)
             exit(1);
     }
     else
