@@ -4,16 +4,9 @@
 extern "C" {
 #endif
 
-struct HttpClient
-{
-  int fd;
-  size_t cbQuery;
-  size_t cbQueryAlloc;
-  char *szQuery;
-};
-
-int processHTTPRequest(aeEventLoop *el, struct HttpClient *pclient);
+void acceptHttpTcpHandler (aeEventLoop *el, int fd, void *privdata, int mask);
 
 #ifdef __cplusplus
 }
 #endif
+

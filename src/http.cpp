@@ -1,39 +1,86 @@
-/*
- * Copyright (c) 2019 Jonah H. Harris <jonah.harris@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright notice,
- *     this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Redis nor the names of its contributors may be used
- *     to endorse or promote products derived from this software without
- *     specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+/* ========================================================================= **
+**                         _____         ____  _____                         **
+**                        |  |  |___ _ _|    \| __  |                        **
+**                        |    -| -_| | |  |  | __ -|                        **
+**                        |__|__|___|_  |____/|_____|                        **
+**                                  |___|                                    **
+**                                                                           **
+** ========================================================================= **
+**                      HIGH PERFORMANCE FORK OF REDIS                       **
+** ========================================================================= **
+**                                                                           **
+** Copyright (c) Various Authors - See LICENSE for details                   **
+**                                                                           **
+** ========================================================================= */
+
+/* ========================================================================= */
+/* -- INCLUSIONS ----------------------------------------------------------- */
+/* ========================================================================= */
 
 #include "server.h"
 #include "http.h"
 #include "picohttpparser.h"
 
-#define HTTP_READ_CHUNK 4096
+/* ========================================================================= */
+/* -- DEFINITIONS ---------------------------------------------------------- */
+/* ========================================================================= */
 
-void
+#define MAX_ACCEPTS_PER_CALL    1000           /** Maximum accept() per call */
+#define HTTP_READ_CHUNK         4096     /** Min alloc/read of HTTP requests */
+
+/* ========================================================================= */
+/* -- MACROS --------------------------------------------------------------- */
+/* ========================================================================= */
+
+/* ========================================================================= */
+/* -- PRIVATE TYPES -------------------------------------------------------- */
+/* ========================================================================= */
+
+struct HttpClient {
+  int                   fd;                    /** File descriptor of client */
+  size_t                cbQuery;              /** Size (in bytes) of request */
+  size_t                cbQueryAlloc;   /** Allocated buffer size (in bytes) */
+  char                 *szQuery;                     /** HTTP request buffer */
+};
+
+/* ========================================================================= */
+/* -- PRIVATE METHOD PROTOTYPES -------------------------------------------- */
+/* ========================================================================= */
+
+#if 0
+static void addReplyHTTPHeader (client *c, const char *header,
+  const char *value);
+#endif
+static void readHTTPRequest (aeEventLoop *el, int fd, void *privdata,
+  int mask);
+static int processHTTPRequest (aeEventLoop *el, struct HttpClient *pclient);
+
+/* ========================================================================= */
+/* -- PRIVATE DATA --------------------------------------------------------- */
+/* ========================================================================= */
+
+/* ========================================================================= */
+/* -- PUBLIC DATA ---------------------------------------------------------- */
+/* ========================================================================= */
+
+/* ========================================================================= */
+/* -- EXTERNAL DATA -------------------------------------------------------- */
+/* ========================================================================= */
+
+/* ========================================================================= */
+/* -- EXTERNAL FUNCTION PROTOTYPES ----------------------------------------- */
+/* ========================================================================= */
+
+/* ========================================================================= */
+/* -- STATIC ASSERTIONS ---------------------------------------------------- */
+/* ========================================================================= */
+
+/* ========================================================================= */
+/* -- PRIVATE METHODS ------------------------------------------------------ */
+/* ========================================================================= */
+
+#if 0
+static void
 addReplyHTTPHeader (
   client               *c,
   const char           *header,
@@ -44,8 +91,11 @@ addReplyHTTPHeader (
   addReplyProto(c, http_header, sdslen(http_header));
   sdsfree(http_header);
 } /* addReplyHTTPHeader() */
+#endif
 
-void
+/* ------------------------------------------------------------------------- */
+
+static void
 readHTTPRequest (
   aeEventLoop          *el,
   int                   fd,
@@ -99,52 +149,15 @@ readHTTPRequest (
   }
 } /* readHTTPRequest() */
 
-#define MAX_ACCEPTS_PER_CALL 1000
-void
-acceptHttpTcpHandler (
-  aeEventLoop          *el,
-  int                   fd,
-  void                 *privdata,
-  int mask
-) {
-  int cport, cfd, max = MAX_ACCEPTS_PER_CALL;
-  char cip[NET_IP_STR_LEN];
-  UNUSED(mask);
-  UNUSED(privdata);
+/* ------------------------------------------------------------------------- */
 
-  while(max--) 
-  {
-    cfd = anetTcpAccept(server.neterr, fd, cip, sizeof(cip), &cport);
-    if (cfd == ANET_ERR) {
-        if (errno != EWOULDBLOCK)
-            serverLog(LL_WARNING,
-                "Accepting HTTP connection: %s", server.neterr);
-        return;
-    }
-    serverLog(LL_VERBOSE,"HTTP Accepted %s:%d", cip, cport);
-
-    struct HttpClient *pclient = (struct HttpClient*)zmalloc(sizeof(struct HttpClient), MALLOC_LOCAL);
-    if (pclient != NULL) {
-      pclient->fd = cfd;
-      pclient->cbQuery = 0;
-      pclient->cbQueryAlloc = 0;
-      pclient->szQuery = NULL;
-    }
-
-    if (pclient == NULL || aeCreateFileEvent(el,pclient->fd,AE_READABLE, readHTTPRequest, pclient) == AE_ERR)
-    {
-      close(cfd);
-      serverLog(LL_WARNING, "Failed to create HTTP listener event");
-      return;
-    }
-  }
-} /* acceptHttpTcpHandler() */
-
-int
+static int
 processHTTPRequest (
   aeEventLoop          *el,
   struct HttpClient    *pclient
 ) {
+  UNUSED(el);
+
   const char *method;
   size_t method_len;
   const char *path;
@@ -154,8 +167,6 @@ processHTTPRequest (
   size_t num_headers;
   int pret;
   int fd = pclient->fd;
-
-  UNUSED(el);
 
   num_headers = (sizeof(headers) / sizeof(headers[0]));
   pret = phr_parse_request(pclient->szQuery, pclient->cbQuery, &method, &method_len,
@@ -229,4 +240,48 @@ processHTTPRequest (
   return C_OK;
 
 } /* processHTTPRequest() */
+
+/* ========================================================================= */
+/* -- PUBLIC METHODS ------------------------------------------------------- */
+/* ========================================================================= */
+
+void
+acceptHttpTcpHandler (
+  aeEventLoop          *el,
+  int                   fd,
+  void                 *privdata,
+  int mask
+) {
+  int cport, cfd, max = MAX_ACCEPTS_PER_CALL;
+  char cip[NET_IP_STR_LEN];
+  UNUSED(mask);
+  UNUSED(privdata);
+
+  while(max--) 
+  {
+    cfd = anetTcpAccept(server.neterr, fd, cip, sizeof(cip), &cport);
+    if (cfd == ANET_ERR) {
+        if (errno != EWOULDBLOCK)
+            serverLog(LL_WARNING,
+                "Accepting HTTP connection: %s", server.neterr);
+        return;
+    }
+    serverLog(LL_VERBOSE,"HTTP Accepted %s:%d", cip, cport);
+
+    struct HttpClient *pclient = (struct HttpClient*)zmalloc(sizeof(struct HttpClient), MALLOC_LOCAL);
+    if (pclient != NULL) {
+      pclient->fd = cfd;
+      pclient->cbQuery = 0;
+      pclient->cbQueryAlloc = 0;
+      pclient->szQuery = NULL;
+    }
+
+    if (pclient == NULL || aeCreateFileEvent(el,pclient->fd,AE_READABLE, readHTTPRequest, pclient) == AE_ERR)
+    {
+      close(cfd);
+      serverLog(LL_WARNING, "Failed to create HTTP listener event");
+      return;
+    }
+  }
+} /* acceptHttpTcpHandler() */
 

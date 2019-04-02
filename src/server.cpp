@@ -29,6 +29,7 @@
  */
 
 #include "server.h"
+#include "http.h"
 #include "cluster.h"
 #include "slowlog.h"
 #include "bio.h"
@@ -2758,7 +2759,6 @@ void resetServerStats(void) {
     server.aof_delayed_fsync = 0;
 }
 
-extern void acceptHttpTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 static void initNetworkingThread(int iel, int fReusePort)
 {
     /* Open the TCP listening socket for the user commands. */
