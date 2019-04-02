@@ -77,6 +77,7 @@ typedef long long mstime_t; /* millisecond time type. */
                            N-elements flat arrays */
 #include "rax.h"     /* Radix tree */
 #include "uuid.h"
+#include "http.h"
 
 /* Following includes allow test functions to be called from Redis main() */
 #include "zipmap.h"
@@ -1064,7 +1065,9 @@ struct clusterState;
 struct redisServerThreadVars {
     aeEventLoop *el;
     int ipfd[CONFIG_BINDADDR_MAX]; /* TCP socket file descriptors */
-    int ipfd_count;             /* Used slots in ipfd[] */
+    int ipfd_count;                 /* Used slots in ipfd[] */
+    int ipfd_http[CONFIG_BINDADDR_MAX];
+    int ipfd_http_count;
     list *clients_pending_write; /* There is to write or install handler. */
     list *unblocked_clients;     /* list of clients to unblock before next loop NOT THREADSAFE */
     list *clients_pending_asyncwrite;
@@ -1602,7 +1605,6 @@ void setDeferredPushLen(client *c, void *node, long length);
 void processInputBuffer(client *c);
 void processInputBufferAndReplicate(client *c);
 void processGopherRequest(client *c);
-void processHTTPRequest(client *c);
 void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 void acceptTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 void acceptUnixHandler(aeEventLoop *el, int fd, void *privdata, int mask);
