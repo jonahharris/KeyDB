@@ -2758,6 +2758,7 @@ void resetServerStats(void) {
     server.aof_delayed_fsync = 0;
 }
 
+extern "C" void acceptHttpTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 static void initNetworkingThread(int iel, int fReusePort)
 {
     /* Open the TCP listening socket for the user commands. */
@@ -2767,7 +2768,7 @@ static void initNetworkingThread(int iel, int fReusePort)
             listenToPort(server.port,server.rgthreadvar[iel].ipfd,&server.rgthreadvar[iel].ipfd_count, fReusePort) == C_ERR)
             exit(1);
         if (server.http_enabled && server.http_port != 0 &&
-            listenToPort(server.http_port,server.rgthreadvar[iel].ipfd,&server.rgthreadvar[iel].ipfd_count, fReusePort) == C_ERR)
+            listenToPort(server.http_port,server.rgthreadvar[iel].ipfd_http,&server.rgthreadvar[iel].ipfd_http_count, fReusePort) == C_ERR)
             exit(1);
     }
     else
@@ -2777,13 +2778,23 @@ static void initNetworkingThread(int iel, int fReusePort)
         server.rgthreadvar[iel].ipfd_count = server.rgthreadvar[IDX_EVENT_LOOP_MAIN].ipfd_count;
     }
 
-    /* Create an event handler for accepting new connections in TCP */
+    /* Create an event handler for accepting new REPL connections in TCP */
     for (int j = 0; j < server.rgthreadvar[iel].ipfd_count; j++) {
         if (aeCreateFileEvent(server.rgthreadvar[iel].el, server.rgthreadvar[iel].ipfd[j], AE_READABLE|AE_READ_THREADSAFE,
             acceptTcpHandler,NULL) == AE_ERR)
             {
                 serverPanic(
                     "Unrecoverable error creating server.ipfd file event.");
+            }
+    }
+
+    /* Create an event handler for accepting new HTTP connections in TCP */
+    for (int j = 0; j < server.rgthreadvar[iel].ipfd_http_count; j++) {
+        if (aeCreateFileEvent(server.rgthreadvar[iel].el, server.rgthreadvar[iel].ipfd_http[j], AE_READABLE|AE_READ_THREADSAFE,
+            acceptHttpTcpHandler,NULL) == AE_ERR)
+            {
+                serverPanic(
+                    "Unrecoverable error creating server.ipfd_http file event.");
             }
     }
 }

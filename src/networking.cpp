@@ -1979,33 +1979,6 @@ void processInputBuffer(client *c) {
         if (c->reqtype == PROTO_REQ_INLINE) {
             if (processInlineBuffer(c) != C_OK) break;
 
-            /*
-             * FIXME - This is an ugly ass hack.
-             *
-             * This should be entirely refactored such that it's handled prior
-             * to processInlineBuffer and, probably, knowingly that it's an
-             * HTTP handler either by using a separate event loop or marking
-             * the client as an HTTP client on accept (maybe based on port)?
-             */
-            if (server.http_enabled
-                && (3 == c->argc
-                    && ('G' == ((char*)(ptrFromObj(c->argv[0])))[0]
-                        && 'E' == ((char*)(ptrFromObj(c->argv[0])))[1]
-                        && 'T' == ((char*)(ptrFromObj(c->argv[0])))[2]))) {
-              AeLocker locker;
-              locker.arm(c);
-              server.current_client = c;
-              processHTTPRequest(c);
-              resetClient(c);
-              c->flags |= CLIENT_CLOSE_AFTER_REPLY;
-              if (server.current_client == NULL) {
-                  fFreed = true;
-                  break;
-              }
-              server.current_client = NULL;
-              break;
-            }
-
             /* If the Gopher mode and we got zero or one argument, process
              * the request in Gopher mode. */
             if (server.gopher_enabled &&
