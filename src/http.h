@@ -12,7 +12,7 @@ struct HttpClient
   char *szQuery;
 };
 
-void processHTTPRequest(aeEventLoop *el, struct HttpClient *pclient);
+int processHTTPRequest(aeEventLoop *el, struct HttpClient *pclient);
 
 #ifdef __cplusplus
 }

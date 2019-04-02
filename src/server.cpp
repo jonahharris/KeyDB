@@ -2758,7 +2758,7 @@ void resetServerStats(void) {
     server.aof_delayed_fsync = 0;
 }
 
-extern "C" void acceptHttpTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
+extern void acceptHttpTcpHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 static void initNetworkingThread(int iel, int fReusePort)
 {
     /* Open the TCP listening socket for the user commands. */
